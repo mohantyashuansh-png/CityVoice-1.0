@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CityVoice - Nagpur</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"DM Sans"', 'sans-serif'], serif: ['"Lora"', 'serif'] },
+          colors: {
+            dark: { bg: '#0d1117', card: '#161b22', input: '#0d1117', border: '#1e2a3a', borderLight: '#30363d', text: '#e6f0ff', muted: '#7a9cc0', faint: '#4a6a8a', accent: '#3b9eff' },
+            light: { bg: '#f0f6ff', card: '#ffffff', input: '#f0f6ff', border: '#c8ddf5', borderLight: '#daeafc', text: '#0d1f3c', muted: '#4a6a8a', faint: '#8aaac8', accent: '#1a6fd4' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { transition: background-color 0.3s, color 0.3s; }
+    .dark body { background-color: #0d1117; color: #e6f0ff; }
+    .light body { background-color: #f0f6ff; color: #0d1f3c; }
+    
+    .view-section { display: none; animation: fadeIn 0.4s ease; }
+    .view-section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    .glass-card { transition: all 0.3s; }
+    .dark .glass-card { background-color: #161b22; border-color: #1e2a3a; }
+    .light .glass-card { background-color: #ffffff; border-color: #c8ddf5; }
+
+    .input-field { outline: none; transition: border-color 0.2s; }
+    .dark .input-field { background-color: #0d1117; border-color: #1e2a3a; color: #e6f0ff; }
+    .light .input-field { background-color: #f0f6ff; border-color: #c8ddf5; color: #0d1f3c; }
+    
+    /* Scrollbar styling for tables */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+    .light ::-webkit-scrollbar-thumb { background: #c8ddf5; }
+  </style>
+</head>
+<body class="min-h-screen font-sans antialiased pb-24">
+
+  <header class="sticky top-0 z-50 backdrop-blur-xl border-b dark:border-dark-border light:border-light-border dark:bg-[#0d1117]/90 light:bg-[#f0f6ff]/90">
+    <div class="max-w-[1400px] mx-auto px-5 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <img id="logo-img" alt="CityVoice" class="h-10 w-auto object-contain" />
+      </div>
+      <div class="flex items-center dark:bg-white/5 light:bg-black/5 border dark:border-dark-border light:border-light-border rounded-xl p-1 gap-1" id="nav-container"></div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs dark:text-dark-faint light:text-light-faint hidden md:block">Nagpur Municipal Corporation</span>
+        <button id="themeToggle" class="w-9 h-9 rounded-xl flex items-center justify-center border dark:border-dark-border light:border-light-border dark:bg-white/5 light:bg-black/5 text-base transition-all">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-5 py-10">
+    
+    <div id="view-citizen" class="view-section active max-w-2xl mx-auto">
+      <div class="text-center mb-10">
+        <div class="inline-flex items-center gap-2 dark:bg-[#3b9eff]/10 light:bg-[#1a6fd4]/10 border dark:border-[#3b9eff]/25 light:border-[#1a6fd4]/20 rounded-full px-4 py-1.5 text-xs font-medium mb-5 dark:text-dark-accent light:text-light-accent">✦ AI-Powered · Multilingual · Real-time</div>
+        <h1 class="text-4xl md:text-5xl font-bold mb-3 leading-tight font-serif">Aapki Awaaz,<br /><span class="dark:text-dark-accent light:text-light-accent">Humara Kaam</span></h1>
+        <p class="dark:text-dark-muted light:text-light-muted text-base max-w-md mx-auto leading-relaxed">Report civic issues in Hindi, Marathi, or English. Our AI instantly routes your complaint to the right department.</p>
+      </div>
+
+      <div class="glass-card border rounded-3xl overflow-hidden shadow-2xl">
+        <div class="p-7 border-b dark:border-dark-borderLight light:border-light-borderLight">
+          <label class="block text-xs font-semibold uppercase tracking-wider mb-4 dark:text-dark-faint light:text-light-faint">Step 1 — Select Issue Category <span class="text-rose-400">*</span></label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="category-grid"></div>
+        </div>
+
+        <div id="step2" class="p-7 border-b dark:border-dark-borderLight light:border-light-borderLight opacity-40 pointer-events-none transition-all duration-300">
+          <label class="block text-xs font-semibold uppercase tracking-wider mb-4 dark:text-dark-faint light:text-light-faint">Step 2 — Describe the Problem <span class="text-rose-400">*</span></label>
+          <div class="relative">
+            <textarea id="complaintDesc" rows="5" placeholder="Select a category first..." class="input-field w-full border rounded-2xl p-4 resize-none focus:border-[#3b9eff]"></textarea>
+            <div id="charCount" class="absolute bottom-3 right-4 text-xs dark:text-dark-faint light:text-light-faint">0/300</div>
+          </div>
+        </div>
+
+        <div id="step3" class="p-7 border-b dark:border-dark-borderLight light:border-light-borderLight opacity-40 pointer-events-none transition-all duration-300">
+          <label class="block text-xs font-semibold uppercase tracking-wider mb-1 dark:text-dark-faint light:text-light-faint">Step 3 — Add Photo / Video Proof</label>
+          <p class="text-xs mb-4 dark:text-dark-faint light:text-light-faint">Optional but helps faster resolution</p>
+          <div class="w-full border-2 border-dashed dark:border-dark-border light:border-light-border rounded-2xl py-8 flex flex-col items-center gap-3 dark:text-dark-muted light:text-light-muted cursor-pointer hover:border-[#3b9eff] transition-all">
+            <span class="text-3xl">📎</span>
+            <div class="text-center"><p class="text-sm font-medium">Click to upload photo or video</p><p class="text-xs mt-1 opacity-70">JPG, PNG, MP4 up to 10MB</p></div>
+          </div>
+        </div>
+
+        <div class="p-7">
+          <button id="submitBtn" disabled class="w-full py-4 rounded-2xl font-semibold text-base transition-all flex items-center justify-center gap-3 border dark:border-dark-border light:border-light-border dark:bg-white/5 dark:text-white/20 light:bg-black/5 light:text-black/40 cursor-not-allowed">Select a category to continue</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-stats" class="view-section space-y-6">
+      <div class="flex justify-between items-end gap-4">
+        <div>
+          <h2 class="text-2xl font-bold font-serif">City Stats & Analytics</h2>
+          <p class="dark:text-dark-muted light:text-light-muted text-sm mt-1">Nagpur Municipal Corporation — Live Dashboard</p>
+        </div>
+        <div id="stats-total-badge" class="text-xs font-mono border px-3 py-1.5 rounded-lg dark:bg-white/5 dark:text-dark-faint light:bg-black/5 dark:border-dark-border light:border-light-border"></div>
+      </div>
+
+      <div id="hotspot-banner"></div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="stats-kpi-cards"></div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="glass-card border rounded-2xl p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-4 dark:text-dark-faint light:text-light-faint">By Category</p>
+          <div class="h-48 relative"><canvas id="pieChart"></canvas></div>
+        </div>
+        <div class="glass-card border rounded-2xl p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-4 dark:text-dark-faint light:text-light-faint">Pending vs Resolved</p>
+          <div class="h-48 relative"><canvas id="barChart"></canvas></div>
+        </div>
+        <div class="glass-card border rounded-2xl p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-4 dark:text-dark-faint light:text-light-faint">Weekly Trend</p>
+          <div class="h-48 relative"><canvas id="lineChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="glass-card border rounded-2xl overflow-hidden shadow-sm mt-6">
+        <div class="p-5 border-b dark:border-dark-borderLight light:border-light-borderLight flex flex-col sm:flex-row justify-between items-center gap-4">
+          <h3 class="font-bold text-base font-serif">All Complaints</h3>
+          <div class="flex flex-wrap gap-2" id="stats-filter-container"></div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="border-b dark:border-dark-borderLight light:border-light-borderLight dark:bg-white/5 light:bg-black/5">
+              <tr><th class="px-4 py-3 text-xs uppercase dark:text-dark-faint">ID</th><th class="px-4 py-3 text-xs uppercase dark:text-dark-faint">Complaint</th><th class="px-4 py-3 text-xs uppercase dark:text-dark-faint">Area</th><th class="px-4 py-3 text-xs uppercase dark:text-dark-faint">Language</th><th class="px-4 py-3 text-xs uppercase dark:text-dark-faint">Category</th><th class="px-4 py-3 text-xs uppercase dark:text-dark-faint">Priority</th><th class="px-4 py-3 text-xs uppercase dark:text-dark-faint">Status</th></tr>
+            </thead>
+            <tbody id="stats-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-map" class="view-section space-y-5">
+      <div class="flex justify-between items-end gap-4">
+        <div><h2 class="text-2xl font-bold font-serif">Live Complaint Map</h2><p class="dark:text-dark-muted text-sm mt-1">Geospatial view of active civic issues</p></div>
+      </div>
+      <div class="glass-card border rounded-2xl overflow-hidden shadow-lg" style="height: 550px;"><div id="map" class="w-full h-full z-0"></div></div>
+    </div>
+
+    <div id="view-admin-login" class="view-section max-w-sm mx-auto mt-16">
+      <div class="text-center mb-8">
+        <div class="inline-flex w-16 h-16 rounded-2xl items-center justify-center mb-4 text-3xl border dark:bg-[#3b9eff]/10 dark:border-[#3b9eff]/30">🔐</div>
+        <h2 class="text-2xl font-bold mb-1 font-serif">Admin Access</h2>
+        <p class="text-sm dark:text-dark-muted">NMC Internal Panel — Authorised Only</p>
+      </div>
+      <div class="glass-card border rounded-3xl p-7 shadow-2xl">
+        <label class="block text-xs font-semibold uppercase tracking-wider mb-3 dark:text-dark-faint">Admin Password</label>
+        <input type="password" id="adminPw" placeholder="Enter password..." class="input-field w-full border rounded-xl px-4 py-3 text-sm outline-none mb-4" style="font-family: monospace;" onkeypress="if(event.key==='Enter') loginAdmin()" />
+        <button onclick="loginAdmin()" class="w-full py-3.5 rounded-2xl font-semibold text-sm text-white bg-gradient-to-br from-[#3b9eff] to-[#1a5aaa] hover:opacity-90 transition-all">Login →</button>
+        <p id="pwError" class="text-rose-400 text-xs text-center mt-3 hidden">Incorrect password. Try again.</p>
+        <p class="text-center text-xs dark:text-dark-faint mt-4">Hint: <span class="font-mono">admin123</span></p>
+      </div>
+    </div>
+
+    <div id="view-admin-dash" class="view-section space-y-6">
+      <div class="flex justify-between items-center gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1"><span class="text-lg">🔐</span><h2 class="text-2xl font-bold font-serif">Admin Panel</h2><span class="text-xs px-2 py-0.5 rounded-full font-medium dark:bg-[#3b9eff]/20 dark:text-[#3b9eff] border dark:border-[#3b9eff]/30">NMC Internal</span></div>
+          <p class="text-sm dark:text-dark-muted">Manage complaints · Assign officers · Monitor analytics</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="markAllResolved()" class="px-4 py-2 rounded-xl text-xs font-semibold border transition-all dark:bg-green-900/30 dark:text-green-300 dark:border-green-700/30 hover:bg-green-900/50">✓ Mark All Resolved</button>
+          <button onclick="logoutAdmin()" class="px-4 py-2 rounded-xl text-xs font-semibold border dark:border-dark-border dark:text-dark-muted hover:bg-white/5">Logout</button>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="admin-kpi-cards"></div>
+
+      <div class="glass-card border rounded-2xl p-4 flex flex-col sm:flex-row gap-3 mt-6">
+        <input type="text" id="adminSearch" placeholder="Search complaint, area, officer, ID..." class="input-field flex-1 border rounded-xl px-4 py-2.5 text-sm outline-none" oninput="renderAdminTable()">
+        <div class="flex flex-wrap gap-2" id="admin-filter-container"></div>
+      </div>
+
+      <div class="glass-card border rounded-2xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="border-b dark:border-dark-borderLight light:border-light-borderLight dark:bg-white/5 light:bg-black/5">
+              <tr><th class="px-3 py-3 text-xs uppercase dark:text-dark-faint">ID</th><th class="px-3 py-3 text-xs uppercase dark:text-dark-faint">Complaint</th><th class="px-3 py-3 text-xs uppercase dark:text-dark-faint">Area</th><th class="px-3 py-3 text-xs uppercase dark:text-dark-faint">Priority</th><th class="px-3 py-3 text-xs uppercase dark:text-dark-faint">Assign Officer</th><th class="px-3 py-3 text-xs uppercase dark:text-dark-faint">Status</th><th class="px-3 py-3 text-xs uppercase dark:text-dark-faint">Action</th></tr>
+            </thead>
+            <tbody id="admin-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ── DATA & CONFIG ──
+    const CITYVOICE_LOGO = "data:image/png;base64,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";
+
+    const CATEGORIES = [
+      { id: 'Water',       emoji: '💧', activeCls: 'bg-blue-600 text-white border-blue-600',          idleCls: 'bg-blue-900/30 text-blue-300 border-blue-700/40' },
+      { id: 'Roads',       emoji: '🛣️', activeCls: 'bg-amber-600 text-white border-amber-600',        idleCls: 'bg-amber-900/30 text-amber-300 border-amber-700/40' },
+      { id: 'Electricity', emoji: '⚡', activeCls: 'bg-yellow-600 text-white border-yellow-600',      idleCls: 'bg-yellow-900/30 text-yellow-300 border-yellow-700/40' },
+      { id: 'Waste',       emoji: '🗑️', activeCls: 'bg-green-600 text-white border-green-600',        idleCls: 'bg-green-900/30 text-green-300 border-green-700/40' },
+      { id: 'Sanitation',  emoji: '🚿', activeCls: 'bg-teal-600 text-white border-teal-600',          idleCls: 'bg-teal-900/30 text-teal-300 border-teal-700/40' },
+      { id: 'Other',       emoji: '📋', activeCls: 'bg-rose-600 text-white border-rose-600',          idleCls: 'bg-rose-900/30 text-rose-300 border-rose-700/40' }
+    ];
+
+    const MOCK_DATA = [
+      { id: 'NMC-7231', area: 'Nagpur', complaint: 'Wardha road par bade khadde hain, scooter se girne ka dar...', language: 'Mixed', category: 'Roads', priority: 'Medium', status: 'Pending', officer: '', lat: 21.102, lng: 79.050 },
+      { id: 'NMC-001', area: 'Wardha Road', complaint: 'Large pothole near Ajni Square causing accidents', language: 'English', category: 'Roads', priority: 'High', status: 'Pending', officer: '', lat: 21.102, lng: 79.050 },
+      { id: 'NMC-002', area: 'Dharampeth', complaint: 'Hamare ilake me kachra 3 din se nahi uthaya gaya', language: 'Hindi', category: 'Waste', priority: 'Medium', status: 'Assigned', officer: 'Sunita Patil', lat: 21.134, lng: 79.072 },
+      { id: 'NMC-003', area: 'Hingna', complaint: 'Hingna road par street light band hai', language: 'Hindi', category: 'Electricity', priority: 'Low', status: 'Pending', officer: '', lat: 21.067, lng: 78.978 },
+      { id: 'NMC-004', area: 'Sitabuldi', complaint: 'Water supply irregular since morning', language: 'English', category: 'Water', priority: 'Medium', status: 'In Progress', officer: 'Rajesh Kumar', lat: 21.145, lng: 79.088 },
+      { id: 'NMC-005', area: 'Trimurti Nagar', complaint: 'Amchya bhagat panipuravatha hot nahi', language: 'Marathi', category: 'Water', priority: 'High', status: 'Pending', officer: '', lat: 21.120, lng: 79.060 },
+      { id: 'NMC-006', area: 'Ajni Square', complaint: 'Street light not working near bus stop', language: 'English', category: 'Electricity', priority: 'Low', status: 'Assigned', officer: 'Amit Shinde', lat: 21.122, lng: 79.082 },
+      { id: 'NMC-007', area: 'Manish Nagar', complaint: 'Sadak par bada gaddha hai jisse ghatna ho sakti hai', language: 'Hindi', category: 'Roads', priority: 'High', status: 'Pending', officer: '', lat: 21.090, lng: 79.030 },
+      { id: 'NMC-008', area: 'Pratap Nagar', complaint: 'Garbage pile causing foul smell', language: 'English', category: 'Waste', priority: 'Medium', status: 'In Progress', officer: 'Sunita Patil', lat: 21.105, lng: 79.070 }
+    ];
+
+    const OFFICERS = ['Rajesh Kumar', 'Priya Desai', 'Amit Shinde', 'Sunita Patil', 'Vikram Joshi', 'Meena Raut'];
+    const STATUS_OPTS = ['Pending', 'Assigned', 'In Progress', 'Resolved'];
+
+    // State
+    let state = {
+      page: 'citizen',
+      complaints: [...MOCK_DATA],
+      adminAuthed: false,
+      adminSearch: '',
+      adminFilter: 'All',
+      statsFilter: 'All',
+      selectedCat: '',
+      isDark: true
+    };
+
+    let mapInstance, pieChart, barChart, lineChart;
+
+    // ── INITIALIZATION ──
+    document.getElementById('logo-img').src = CITYVOICE_LOGO;
+    
+    function init() {
+      renderNav();
+      renderCategoryGrid();
+      switchPage('citizen');
+    }
+
+    // ── NAVIGATION & THEME ──
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      state.isDark = !state.isDark;
+      document.documentElement.classList.replace(state.isDark ? 'light' : 'dark', state.isDark ? 'dark' : 'light');
+      document.getElementById('themeToggle').innerText = state.isDark ? '🌙' : '☀️';
+      if(state.page === 'stats') { initCharts(); }
+      if(state.page === 'map') { initMap(); }
+    });
+
+    const TABS = [
+      { id: 'citizen', label: 'Citizen Portal', icon: '🏡' },
+      { id: 'stats', label: 'City Stats', icon: '📊' },
+      { id: 'map', label: 'Live Map', icon: '🗺️' },
+      { id: 'admin', label: 'Admin', icon: '🔐' }
+    ];
+
+    function renderNav() {
+      document.getElementById('nav-container').innerHTML = TABS.map(t => `
+        <button onclick="switchPage('${t.id}')" id="nav-${t.id}" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${state.page === t.id ? 'dark:bg-[#3b9eff]/10 dark:text-[#3b9eff] light:bg-[#1a6fd4]/10 light:text-[#1a6fd4] border dark:border-[#3b9eff]/25 light:border-[#1a6fd4]/20' : 'dark:text-[#7a9cc0] light:text-[#4a6a8a] hover:bg-white/5'}">
+          <span>${t.icon}</span> <span class="hidden sm:inline">${t.label}</span>
+        </button>
+      `).join('');
+    }
+
+    function switchPage(pageId) {
+      if(pageId === 'admin' && !state.adminAuthed) {
+        state.page = 'admin-login';
+      } else if (pageId === 'admin' && state.adminAuthed) {
+        state.page = 'admin-dash';
+      } else {
+        state.page = pageId;
+      }
+
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.getElementById(`view-${state.page}`).classList.add('active');
+      
+      renderNav(); // Update highlight
+      
+      if(state.page === 'stats') { renderStats(); }
+      if(state.page === 'map') { setTimeout(() => initMap(), 50); }
+      if(state.page === 'admin-dash') { renderAdminDashboard(); }
+    }
+
+    // ── CITIZEN PORTAL ──
+    function renderCategoryGrid() {
+      document.getElementById('category-grid').innerHTML = CATEGORIES.map(c => `
+        <button onclick="selectCategory('${c.id}')" id="cat-${c.id}" class="cat-btn flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border text-sm font-medium transition-all ${state.selectedCat === c.id ? c.activeCls : c.idleCls}">
+          <span class="text-2xl">${c.emoji}</span><span class="text-xs font-semibold">${c.id}</span>
+        </button>
+      `).join('');
+    }
+
+    function selectCategory(catId) {
+      state.selectedCat = catId;
+      renderCategoryGrid();
+      document.getElementById('step2').classList.remove('opacity-40', 'pointer-events-none');
+      document.getElementById('step3').classList.remove('opacity-40', 'pointer-events-none');
+      document.getElementById('complaintDesc').placeholder = `Describe the ${catId} issue...`;
+      validateForm();
+    }
+
+    document.getElementById('complaintDesc').addEventListener('input', validateForm);
+
+    function validateForm() {
+      const desc = document.getElementById('complaintDesc').value;
+      document.getElementById('charCount').innerText = `${desc.length}/300`;
+      const btn = document.getElementById('submitBtn');
+      if(state.selectedCat && desc.length > 10) {
+        btn.disabled = false;
+        btn.className = "w-full py-4 rounded-2xl font-semibold text-base transition-all flex items-center justify-center text-white cursor-pointer bg-gradient-to-br from-[#3b9eff] to-[#1a5aaa] shadow-lg hover:opacity-90";
+        btn.innerText = "Submit Complaint →";
+      } else {
+        btn.disabled = true;
+        btn.className = "w-full py-4 rounded-2xl font-semibold text-base transition-all flex items-center justify-center border dark:border-dark-border light:border-light-border dark:bg-white/5 dark:text-white/20 light:bg-black/5 light:text-black/40 cursor-not-allowed";
+        btn.innerText = desc.length <= 10 ? "Describe the issue to continue" : "Select a category to continue";
+      }
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', () => {
+      const id = 'NMC-' + Math.floor(Math.random() * 9000 + 1000);
+      const prio = Math.random() > 0.6 ? 'High' : 'Medium';
+      state.complaints.unshift({
+        id, area: 'Nagpur', complaint: document.getElementById('complaintDesc').value, language: 'Mixed',
+        category: state.selectedCat, priority: prio, status: 'Pending', officer: '',
+        lat: 21.105 + (Math.random()-0.5)*0.08, lng: 79.055 + (Math.random()-0.5)*0.08
+      });
+      alert(`Success! Complaint ${id} registered.`);
+      document.getElementById('complaintDesc').value = '';
+      state.selectedCat = '';
+      renderCategoryGrid();
+      document.getElementById('step2').classList.add('opacity-40', 'pointer-events-none');
+      document.getElementById('step3').classList.add('opacity-40', 'pointer-events-none');
+      validateForm();
+      switchPage('stats');
+    });
+
+    // ── STATS DASHBOARD ──
+    function renderStats() {
+      const filtered = state.statsFilter === 'All' ? state.complaints : state.complaints.filter(c => c.category === state.statsFilter);
+      const total = state.complaints.length;
+      const pending = state.complaints.filter(c => c.status !== 'Resolved').length;
+      const high = state.complaints.filter(c => c.priority === 'High' && c.status !== 'Resolved').length;
+      const score = Math.round(((total - pending) / total) * 100) || 0;
+
+      document.getElementById('stats-total-badge').innerText = `${total} complaints loaded`;
+
+      // Hotspot
+      document.getElementById('hotspot-banner').innerHTML = pending >= 5 ? `
+        <div class="flex items-start gap-4 border rounded-2xl px-5 py-4 dark:bg-rose-950/30 dark:border-rose-800/30 light:bg-rose-50 light:border-rose-200">
+          <span class="text-rose-400 text-xl">⚠️</span>
+          <div><p class="font-semibold text-sm dark:text-rose-300 light:text-rose-700">Hotspot Areas Detected</p><p class="text-xs mt-1 dark:text-rose-400/60 light:text-rose-500/80">Multiple pending complaints. Immediate attention needed.</p></div>
+        </div>
+      ` : '';
+
+      // KPIs
+      document.getElementById('stats-kpi-cards').innerHTML = `
+        <div class="glass-card border rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider mb-2 dark:text-dark-faint">Health Score</p>
+          <p class="text-6xl font-black font-serif ${score >= 70 ? 'text-[#4ade80]' : score >= 40 ? 'text-[#facc15]' : 'text-[#f87171]'}">${score}</p>
+          <p class="dark:text-dark-faint text-sm mt-1">/ 100</p>
+          <div class="w-full rounded-full h-1.5 mt-4 dark:bg-white/10 light:bg-black/10"><div class="h-1.5 rounded-full" style="width: ${score}%; background: ${score >= 70 ? '#4ade80' : '#f87171'}"></div></div>
+        </div>
+        ${[{l:'Total', v:total, sub:'All complaints', c:'dark:text-white'}, {l:'Pending', v:pending, sub:'Need action', c:'text-[#facc15]'}, {l:'High Priority', v:high, sub:'Urgent', c:'text-[#f87171]'}].map(k => `
+          <div class="glass-card border rounded-2xl p-6 shadow-sm"><p class="text-xs font-semibold uppercase tracking-wider mb-3 dark:text-dark-faint">${k.l}</p><p class="text-4xl font-black font-serif ${k.c}">${k.v}</p><p class="dark:text-dark-faint text-xs mt-2">${k.sub}</p></div>
+        `).join('')}
+      `;
+
+      // Filter Buttons
+      document.getElementById('stats-filter-container').innerHTML = ['All', ...CATEGORIES.map(c=>c.id)].map(cat => `
+        <button onclick="state.statsFilter='${cat}'; renderStats();" class="px-3 py-1 rounded-lg text-xs font-medium border transition-all ${state.statsFilter === cat ? 'dark:bg-[#3b9eff]/20 dark:text-[#3b9eff] border-[#3b9eff]/50' : 'dark:text-[#7a9cc0] dark:border-[#30363d] dark:bg-white/5'}">${cat}</button>
+      `).join('');
+
+      // Table
+      document.getElementById('stats-table-body').innerHTML = filtered.map(c => `
+        <tr class="border-b dark:border-dark-borderLight light:border-light-borderLight hover:bg-white/5">
+          <td class="px-4 py-4 font-mono text-xs font-semibold text-[#3b9eff]">${c.id}</td>
+          <td class="px-4 py-4 text-xs truncate max-w-xs dark:text-white">${c.complaint}</td>
+          <td class="px-4 py-4 text-xs dark:text-[#3b9eff]">${c.area}</td>
+          <td class="px-4 py-4 text-xs"><span class="px-2 py-0.5 rounded-full border dark:bg-white/5">${c.language}</span></td>
+          <td class="px-4 py-4 text-xs"><span class="px-2 py-1 rounded-lg border dark:bg-white/5">${CATEGORIES.find(x=>x.id===c.category)?.emoji} ${c.category}</span></td>
+          <td class="px-4 py-4 text-xs"><span class="px-2 py-1 rounded-lg font-medium border ${c.priority==='High'?'text-rose-400 border-rose-400/30 bg-rose-400/10':c.priority==='Medium'?'text-amber-400 border-amber-400/30 bg-amber-400/10':'text-green-400 border-green-400/30 bg-green-400/10'}">${c.priority}</span></td>
+          <td class="px-4 py-4 text-xs font-bold ${c.status==='Resolved'?'text-green-500':'text-amber-500'}">● ${c.status}</td>
+        </tr>
+      `).join('');
+
+      initCharts();
+    }
+
+    function initCharts() {
+      const textColor = state.isDark ? '#7a9cc0' : '#4a6a8a';
+      const gridColor = state.isDark ? '#30363d' : '#c8ddf5';
+      const colors = ['#60a5fa', '#fbbf24', '#facc15', '#4ade80', '#2dd4bf', '#fb7185'];
+
+      if(pieChart) pieChart.destroy();
+      if(barChart) barChart.destroy();
+      if(lineChart) lineChart.destroy();
+
+      // Pie Data
+      let cats = {}; state.complaints.forEach(c => cats[c.category] = (cats[c.category] || 0) + 1);
+      pieChart = new Chart(document.getElementById('pieChart'), {
+        type: 'doughnut', data: { labels: Object.keys(cats), datasets: [{ data: Object.values(cats), backgroundColor: colors, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: {color: textColor, padding: 10, font: {size: 10}} } } }
+      });
+
+      // Bar Data
+      barChart = new Chart(document.getElementById('barChart'), {
+        type: 'bar',
+        data: { labels: ['Roads', 'Waste', 'Electricity', 'Water'], datasets: [
+          { label: 'Pending', data: [5, 4, 3, 2], backgroundColor: '#60a5fa', borderRadius: 2 },
+          { label: 'Resolved', data: [1, 1, 2, 0], backgroundColor: '#4ade80', borderRadius: 2 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display: false }, ticks: {color: textColor, font:{size:10}} }, y: { grid: { color: gridColor }, ticks: {color: textColor, font:{size:10}} } }, plugins: { legend: { position: 'bottom', labels: {color: textColor, font:{size:10}} } } }
+      });
+
+      // Line Data
+      lineChart = new Chart(document.getElementById('lineChart'), {
+        type: 'line',
+        data: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], datasets: [{ label: 'Complaints', data: [8, 12, 7, 15, 11, 6, 9], borderColor: '#3b9eff', backgroundColor: '#3b9eff', tension: 0.4, borderWidth: 2 }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { color: gridColor }, ticks: {color: textColor, font:{size:10}} }, y: { grid: { color: gridColor }, ticks: {color: textColor, font:{size:10}} } }, plugins: { legend: { display: false } } }
+      });
+    }
+
+    // ── MAP ──
+    function initMap() {
+      const tileUrl = state.isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+      if(!mapInstance) {
+        mapInstance = L.map('map').setView([21.105, 79.055], 13);
+        L.tileLayer(tileUrl, { attribution: '&copy; CARTO' }).addTo(mapInstance);
+      } else {
+        mapInstance.eachLayer(l => { if(l instanceof L.TileLayer) mapInstance.removeLayer(l); });
+        L.tileLayer(tileUrl).addTo(mapInstance);
+      }
+      mapInstance.eachLayer(l => { if(l instanceof L.CircleMarker) mapInstance.removeLayer(l); });
+      state.complaints.forEach(c => {
+        L.circleMarker([c.lat, c.lng], { radius: c.priority==='High'?10:7, fillColor: c.status==='Resolved'?'#4ade80':'#3b9eff', color: state.isDark?'#161b22':'#fff', weight: 2, fillOpacity: 0.9 })
+        .bindPopup(`<b>${c.id}</b><br>${c.category} - ${c.status}`).addTo(mapInstance);
+      });
+      mapInstance.invalidateSize();
+    }
+
+    // ── ADMIN PANEL ──
+    function loginAdmin() {
+      if(document.getElementById('adminPw').value === 'admin123') {
+        state.adminAuthed = true;
+        document.getElementById('pwError').classList.add('hidden');
+        document.getElementById('adminPw').value = '';
+        switchPage('admin');
+      } else {
+        document.getElementById('pwError').classList.remove('hidden');
+      }
+    }
+
+    function logoutAdmin() {
+      state.adminAuthed = false;
+      switchPage('admin');
+    }
+
+    function markAllResolved() {
+      state.complaints.forEach(c => c.status = 'Resolved');
+      renderAdminDashboard();
+    }
+
+    function renderAdminDashboard() {
+      const total = state.complaints.length;
+      const resolved = state.complaints.filter(c => c.status === 'Resolved').length;
+      const pending = total - resolved;
+      const high = state.complaints.filter(c => c.priority === 'High' && c.status !== 'Resolved').length;
+
+      document.getElementById('admin-kpi-cards').innerHTML = [
+        { l: 'Total', v: total, icon: '📋' }, { l: 'Unresolved', v: pending, icon: '⏳', c: 'text-[#3b9eff]' },
+        { l: 'Resolved', v: resolved, icon: '✅', c: 'text-[#4ade80]' }, { l: 'High Priority', v: high, icon: '🚨', c: 'text-[#f87171]' }
+      ].map(k => `
+        <div class="glass-card border rounded-2xl p-5 shadow-sm"><div class="flex justify-between items-center mb-2"><p class="text-xs font-semibold uppercase dark:text-dark-faint">${k.l}</p><span class="text-base">${k.icon}</span></div><p class="text-3xl font-black font-serif ${k.c||'dark:text-white'}">${k.v}</p></div>
+      `).join('');
+
+      document.getElementById('admin-filter-container').innerHTML = ['All', ...CATEGORIES.map(c=>c.id)].map(cat => `
+        <button onclick="state.adminFilter='${cat}'; renderAdminTable();" class="px-3 py-2 rounded-lg text-xs font-medium border transition-all ${state.adminFilter === cat ? 'dark:bg-[#3b9eff]/20 dark:text-[#3b9eff] border-[#3b9eff]/50' : 'dark:text-[#7a9cc0] dark:border-[#30363d] dark:bg-white/5'}">${cat}</button>
+      `).join('');
+
+      renderAdminTable();
+    }
+
+    function renderAdminTable() {
+      const search = document.getElementById('adminSearch').value.toLowerCase();
+      const filtered = state.complaints.filter(c => (state.adminFilter === 'All' || c.category === state.adminFilter) && (c.complaint.toLowerCase().includes(search) || c.id.toLowerCase().includes(search) || c.area.toLowerCase().includes(search)));
+      
+      document.getElementById('admin-table-body').innerHTML = filtered.map(c => `
+        <tr class="border-b dark:border-dark-borderLight light:border-light-borderLight hover:bg-white/5">
+          <td class="px-3 py-3 font-mono text-xs font-semibold text-[#3b9eff] whitespace-nowrap">${c.id}</td>
+          <td class="px-3 py-3 text-xs max-w-[160px] truncate dark:text-white">${c.complaint}</td>
+          <td class="px-3 py-3 text-xs dark:text-[#3b9eff] whitespace-nowrap">${c.area}</td>
+          <td class="px-3 py-3 text-xs"><span class="px-2 py-1 rounded-lg border ${c.priority==='High'?'text-rose-400 border-rose-400/30 bg-rose-400/10':c.priority==='Medium'?'text-amber-400 border-amber-400/30 bg-amber-400/10':'text-green-400 border-green-400/30 bg-green-400/10'}">${c.priority}</span></td>
+          <td class="px-3 py-3"><select onchange="updateComp('${c.id}', 'officer', this.value)" class="text-xs rounded-lg px-2 py-1.5 border outline-none bg-transparent dark:border-[#30363d] dark:text-white"><option value="">— Unassigned —</option>${OFFICERS.map(o => `<option value="${o}" ${c.officer===o?'selected':''}>${o}</option>`).join('')}</select></td>
+          <td class="px-3 py-3"><select onchange="updateComp('${c.id}', 'status', this.value)" class="text-xs rounded-lg px-2 py-1.5 border outline-none bg-transparent dark:border-[#30363d] dark:text-white"><option value="Pending" ${c.status==='Pending'?'selected':''}>Pending</option><option value="Assigned" ${c.status==='Assigned'?'selected':''}>Assigned</option><option value="In Progress" ${c.status==='In Progress'?'selected':''}>In Progress</option><option value="Resolved" ${c.status==='Resolved'?'selected':''}>Resolved</option></select></td>
+          <td class="px-3 py-3 flex items-center gap-1">
+            <button class="text-[10px] px-2 py-1 rounded border dark:border-[#30363d] dark:text-[#7a9cc0]">+ Note</button>
+            <button class="text-[10px] px-2 py-1 rounded border dark:border-purple-700/30 dark:bg-purple-900/30 dark:text-purple-300">🤖 Reply</button>
+            <button onclick="deleteComp('${c.id}')" class="text-[10px] px-2 py-1 rounded border dark:border-rose-700/30 dark:bg-rose-900/30 dark:text-rose-400">✕</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function updateComp(id, field, value) {
+      const idx = state.complaints.findIndex(c => c.id === id);
+      if(idx > -1) { state.complaints[idx][field] = value; renderAdminDashboard(); }
+    }
+
+    function deleteComp(id) {
+      if(confirm(`Delete complaint ${id}?`)) {
+        state.complaints = state.complaints.filter(c => c.id !== id);
+        renderAdminDashboard();
+      }
+    }
+
+    // Initialize the app on load
+    window.onload = init;
+  </script>
+</body>
+</html>
